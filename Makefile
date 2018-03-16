@@ -1,8 +1,8 @@
 CFLAGS = -O3 -W -Wall
 LDLIBS = -lm
 
-ledbanner: ledbanner.c
+ledspace: ledspace.c
 
 clean:
-	rm -f ledbanner
+	rm -f ledspace
 

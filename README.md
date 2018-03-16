@@ -1,4 +1,4 @@
-ledbanner
+ledspace
 =========
 
-Display server for 80x8 pixel RGB ledbanner
+Display server for 13x36 pixel RGB ledspace

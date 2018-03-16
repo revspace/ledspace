@@ -11,12 +11,13 @@
 #include <math.h>
 #include <stdint.h>
 
-#define WIDTH 80
-#define HEIGHT 8
+#define WIDTH 13
+#define HEIGHT 36
 //#define TAIL 21
-#define TAIL 50
 #define PIXELS (WIDTH * HEIGHT)
-#define BYTES (PIXELS * 3)
+#define BYTES_IN (PIXELS * 3)
+#define BYTES_OUT (PIXELS * 4)
+#define TAIL (4 + PIXELS / 4)
 
 // raw RGB values for a theoretical pure white pixel
 #define WHITE_R 255
@@ -25,7 +26,7 @@
 
 static uint8_t rgb_table[256][3];
 
-static char out[BYTES + TAIL];
+static char out[BYTES_OUT + TAIL];
 
 // see http://en.wikipedia.org/wiki/SRGB
 static double rgbs(double x)
@@ -51,7 +52,7 @@ static void create_table(uint8_t table[][3], uint8_t white[3])
 
 
 int main (void) {
-    char in[BYTES];
+    char in[BYTES_IN];
     int i, c;
     uint8_t r,g,b;
 
@@ -60,27 +61,26 @@ int main (void) {
 
     int spi = open("/dev/spidev0.0", O_WRONLY);
 
-//    int hz = 8000000;
-    int hz = 4000000;
+    int hz = 1000000;
+    int lsb_first = 0;
+    int mode = 0;
+    ioctl(spi, SPI_IOC_WR_MODE, &mode);
+    ioctl(spi, SPI_IOC_WR_LSB_FIRST, &lsb_first);
     ioctl(spi, SPI_IOC_WR_MAX_SPEED_HZ, &hz);
-
-    write(spi, "\0\0\0\0\0\0\0\0\0\0", 10);
-
-    while ((c = read(0, in, BYTES))) {
+    
+    while ((c = read(0, in, BYTES_IN))) {
+        write(spi, "\0\0\0\0", 4);
         for (i = 0; i < (c/3); i++) {
-            int xx = (i % WIDTH);
-            int yy = (i - xx) / WIDTH;
-            int j = (yy % 2) ? (yy * WIDTH + WIDTH - xx - 1) : i;
-
-            r = in[i * 3 + 0];
-            g = in[i * 3 + 1];
-            b = in[i * 3 + 2];
+            r = in[i * 3 + 1];
+            g = in[i * 3 + 2];
+            b = in[i * 3 + 0];
             
-            out[j * 3 + 1] = (rgb_table[r][0] >> 1) | 0x80;
-            out[j * 3 + 0] = (rgb_table[g][1] >> 1) | 0x80;
-            out[j * 3 + 2] = (rgb_table[b][2] >> 1) | 0x80;
+            out[i * 4 + 0] = 0xff;  // alpa
+            out[i * 4 + 2] = rgb_table[r][0];
+            out[i * 4 + 1] = rgb_table[g][1];
+            out[i * 4 + 3] = rgb_table[b][2];
         }
-	    write(spi, out, sizeof(out));
+        write(spi, out, sizeof(out));
     }
     close(spi);
     return 0;
