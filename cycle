@@ -1,0 +1,11 @@
+#!/bin/bash
+
+(while true; do
+    
+    ./regenboogje 120
+    sleep 1
+    ./pixelfades 120
+    sleep 1
+
+done) | ./spacedicht | ./ledspace    
+    

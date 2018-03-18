@@ -1,0 +1,35 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+use Net::MQTT::Simple;
+
+my $h = int rand 360;
+my $buizen = 13;
+my $bytes = $buizen * 36 * 3;
+my $step = 360 / $buizen;
+
+$| = 1;
+
+sub frame {
+    my $frame = "";
+    for my $buis (1 .. $buizen) {
+        $frame .= pack "C*", hsv2rgb($h + $buis * $step, 1, 1);
+        $frame .= "\0\0\0" x 35;
+    }
+    $h++;
+    return $frame;
+}
+
+my $dicht;
+
+my $mqtt = Net::MQTT::Simple->new("mosquitto.space.revspace.nl");
+$mqtt->subscribe('revspace/state' => sub {
+    my ($topic, $message) = @_;
+    $dicht = $message eq 'closed';
+});
+
+$/ = \$bytes;
+while (my $buf = readline STDIN) {
+    print STDOUT $dicht ? frame : $buf;
+    $mqtt->tick(0);
+}

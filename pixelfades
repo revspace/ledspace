@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+use Time::HiRes qw(sleep);
+
+my $num_leds = 13 * 36;
+my $time_limit = shift || 9e9;
+my $fade_step = .05;
+my $shift_step = 1;
+my $shift_stop_chance = .01;
+my @leds;
+
+# Poor man's enums
+use constant mode => 0;
+use constant hsv => 1;
+use constant h => 0;
+use constant s => 1;
+use constant v => 2;
+
+$| = 1;
+
+sub frame {
+    my $frame = "";
+    for my $i (0 .. ($num_leds - 1)) {
+        my $led = $leds[$i];
+        $frame .= $led
+            ? pack "C*", hsv2rgb(@{ $led->[hsv] })
+            : "\0\0\0";
+    }
+    return $frame;
+}
+
+sub random_mode {
+    my ($not) = @_;
+
+    my $mode = $not;
+    $mode = ('fade_in', 'fade_out', 'shift_up', 'shift_down')[rand 4]
+        until $mode ne $not;
+    return $mode;
+}
+
+# Fade out
+$SIG{ALRM} = sub {
+    my $alive = 1;
+
+    while ($alive) {
+        $alive = 0;
+
+        for my $led (@leds) {
+            $led or next;
+            $led->[hsv][v] -= $fade_step;
+            $led->[hsv][v] = 0 if $led->[hsv][v] < 0;
+            $alive = 1 if $led->[hsv][v];
+        }
+            
+        print frame;
+        sleep .01;
+    }
+    exit;
+};
+alarm $time_limit if $time_limit;
+
+# Cycle
+while (1) {
+    $leds[rand $num_leds] //= [ 'fade_in', [ int(rand 360), 1, 0 ] ];
+
+    for my $led (@leds) {
+        $led or next;
+        my $mode = $led->[mode] or next;
+        if ($mode eq 'fade_in') {
+            $led->[hsv][v] += $fade_step;
+            if ($led->[hsv][v] >= 1) {
+                $led->[hsv][v] = 1;
+                $led->[mode] = random_mode('fade_in');
+            }
+        } elsif ($mode eq 'fade_out') {
+            $led->[hsv][v] -= $fade_step;
+            if ($led->[hsv][v] <= 0) {
+                $led->[hsv][v] = 0;
+                $led->[mode] = random_mode('fade_out');
+            }
+        } elsif ($mode eq 'shift_up') {
+            ($led->[hsv][h] += $shift_step) %= 360;
+            $led->[mode] = random_mode('shift_up') if rand() < $shift_stop_chance;
+        } elsif ($mode eq 'shift_down') {
+            ($led->[hsv][h] -= $shift_step) %= 360;
+            $led->[mode] = random_mode('shift_up') if rand() < $shift_stop_chance;
+        }
+    }
+    print frame;
+}

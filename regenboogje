@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+
+my $leds = 13 * 36;
+my $step = 360 / $leds;
+my $time_limit = shift || 9e9;
+my $h = int rand 360;
+
+$| = 1;
+
+sub frame {
+    my ($h, $v) = @_;
+
+    my $frame = "";
+    for my $n (0 .. $leds) {  
+        $frame .= pack "C*", hsv2rgb($h + $n * $step, 1, $v);
+    }
+    return $frame;
+}
+
+# Fade in
+print frame($h, $_ / 100) for 0..100;
+
+# Fade out
+$SIG{ALRM} = sub {
+    print frame($h, 1 - $_ / 100) for 0..100;
+    exit;
+};
+alarm $time_limit if $time_limit;
+
+# Cycle
+while (1) {
+    $h++;
+    $h %= 360;
+    print frame($h, 1);
+}
