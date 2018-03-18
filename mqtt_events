@@ -7,11 +7,14 @@ use Time::HiRes qw(sleep);
 my $buizen = 13;
 my $leds_per_buis = 36;
 my $leds_uit = "\0\0\0" x ($leds_per_buis - 1);
-my $bytes = $buizen * $leds_per_buis * 3;
+my $leds = $buizen * $leds_per_buis;
+my $bytes = $leds * 3;
 my $delay = .02;
 $| = 1;
 
 my $dicht = 0;
+my $nomz = 0;
+my $doorbell = 0;
 
 sub leds_uit {
     my ($buf, $aantal) = @_;
@@ -32,15 +35,54 @@ $mqtt->subscribe('revspace/state' => sub {
     $dicht = $message eq 'closed';
 });
 
+$mqtt->subscribe('revspace/button/nomz' => sub {
+    $nomz = 1;
+});
+
+$mqtt->subscribe('revspace/button/doorbell' => sub {
+    $doorbell = 1;
+});
+
 my $prevdicht = $dicht;
 while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
     warn "Short read ($bytes_read)" if $bytes_read != $bytes;
+
+    if ($nomz) {
+        for (1..15) { # 1 cycle takes approx. 2s
+            for (1..8) {
+                print "\xff\x80\0" x $leds;
+                sleep .02;
+                print "\0" x $bytes;
+                sleep .05;
+            }
+            sleep .6;
+            for (1..8) {
+                print "\0\0\xff" x $leds;
+                sleep .02;
+                print "\0" x $bytes;
+                sleep .05;
+            }
+            sleep .6;
+        }
+        $nomz = 0;
+    }
+
+    if ($doorbell) {
+        for (1..10) {
+            print "\xff\xff\0" x $leds;
+            sleep 1;
+            print "\0" x $bytes;
+            sleep 1;
+        }
+        $doorbell = 0;
+    }
 
     if ($dicht != $prevdicht) {
         my @range = 1 .. ($leds_per_buis - 1);
         @range = reverse @range if !$dicht;
 
         for my $leds_uit (@range) {
+   i($topic, $message) = @_;
             print leds_uit $buf, $leds_uit;
             sleep $delay;
         }
