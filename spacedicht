@@ -2,25 +2,29 @@
 use strict;
 use Graphics::ColorUtils qw(hsv2rgb);
 use Net::MQTT::Simple;
+use Time::HiRes qw(sleep);
 
-my $h = int rand 360;
 my $buizen = 13;
-my $bytes = $buizen * 36 * 3;
-my $step = 360 / $buizen;
-
+my $leds_per_buis = 36;
+my $leds_uit = "\0\0\0" x ($leds_per_buis - 1);
+my $bytes = $buizen * $leds_per_buis * 3;
+my $delay = .02;
 $| = 1;
 
-sub frame {
-    my $frame = "";
-    for my $buis (1 .. $buizen) {
-        $frame .= pack "C*", hsv2rgb($h + $buis * $step, 1, 1);
-        $frame .= "\0\0\0" x 35;
-    }
-    $h++;
-    return $frame;
-}
+my $dicht = 0;
 
-my $dicht;
+sub leds_uit {
+    my ($buf, $aantal) = @_;
+
+    my $nullbytes = "\0\0\0" x $aantal;
+    substr(
+        $buf,
+        ($_ * $leds_per_buis * 3 + ($leds_per_buis - $aantal) * 3),
+        length($nullbytes),
+        $nullbytes 
+    ) for 0 .. ($buizen - 1);
+    return $buf;
+}
 
 my $mqtt = Net::MQTT::Simple->new("mosquitto.space.revspace.nl");
 $mqtt->subscribe('revspace/state' => sub {
@@ -28,8 +32,21 @@ $mqtt->subscribe('revspace/state' => sub {
     $dicht = $message eq 'closed';
 });
 
-$/ = \$bytes;
-while (my $buf = readline STDIN) {
-    print STDOUT $dicht ? frame : $buf;
+my $prevdicht = $dicht;
+while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
+    warn "Short read ($bytes_read)" if $bytes_read != $bytes;
+
+    if ($dicht != $prevdicht) {
+        my @range = 1 .. ($leds_per_buis - 1);
+        @range = reverse @range if !$dicht;
+
+        for my $leds_uit (@range) {
+            print leds_uit $buf, $leds_uit;
+            sleep $delay;
+        }
+        $prevdicht = $dicht;
+    }
+
+    print $dicht ? leds_uit($buf, $leds_per_buis - 1) : $buf;
     $mqtt->tick(0);
 }
