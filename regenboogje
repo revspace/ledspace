@@ -6,6 +6,7 @@ my $leds = 13 * 36;
 my $step = 360 / $leds;
 my $time_limit = shift || 9e9;
 my $h = int rand 360;
+my $direction = (-1, +1)[rand 2];
 
 $| = 1;
 
@@ -13,7 +14,7 @@ sub frame {
     my ($h, $v) = @_;
 
     my $frame = "";
-    for my $n (0 .. $leds) {  
+    for my $n (0 .. ($leds - 1)) {  
         $frame .= pack "C*", hsv2rgb($h + $n * $step, 1, $v);
     }
     return $frame;
@@ -31,7 +32,7 @@ alarm $time_limit if $time_limit;
 
 # Cycle
 while (1) {
-    $h++;
+    $h += $direction;
     $h %= 360;
     print frame($h, 1);
 }
