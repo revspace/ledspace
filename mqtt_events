@@ -1,0 +1,78 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+use Net::MQTT::Simple;
+use Time::HiRes qw(sleep);
+
+my $buizen = 13;
+my $leds_per_buis = 36;
+my $leds_uit = "\0\0\0" x ($leds_per_buis - 1);
+my $leds = $buizen * $leds_per_buis;
+my $bytes = $leds * 3;
+$| = 1;
+
+my $geel = "\xff\xc0\x00";
+my $uit  = "\0\0\0";
+
+my $cam3 = 0;
+my $cam4 = 0;
+
+sub substr_cam {
+    my (undef, $buizen) = @_;
+
+    my $aantal_rood = 7;
+    my $rood = "\xff\0\0" x $aantal_rood;
+    my $aantal_uit = 2;
+    my $uit = "\0\0\0" x $aantal_uit;
+    for my $buis (@$buizen) {
+        # boven
+        substr(
+            $_[0],
+            ($buis * $leds_per_buis * 3
+                + ($leds_per_buis - $aantal_rood - $aantal_uit) * 3),
+            length($rood) + length($uit),
+            $uit . $rood
+        );
+        # onder
+        substr(
+            $_[0],
+            ($buis * $leds_per_buis * 3),
+            length($rood) + length($uit),
+            $rood . $uit
+        );
+    }
+}
+
+my $mqtt = Net::MQTT::Simple->new("mosquitto.space.revspace.nl");
+$mqtt->subscribe('revspace/button/doorbell' => sub {
+    for (1 .. 3) {
+        for (1 .. 3) {
+            print $geel x $leds; sleep .5;
+            print $uit  x $leds; sleep .5;
+        }
+        for (1 .. 3) {
+            my $laatste = $buizen - 1;
+            for my $huidige (0 .. $laatste) {
+                my $frame = "";
+                $frame .= $uit  x ($huidige * $leds_per_buis);
+                $frame .= $geel x $leds_per_buis;
+                $frame .= $uit  x (($laatste - $huidige) * $leds_per_buis);
+                print $frame;
+                sleep .1;
+            }
+        }
+    }
+});
+$mqtt->subscribe('revspace/cams' => sub {
+    my ($topic, $message) = @_;
+    ($cam3, $cam4) = (split " ", $message)[3, 4];
+});
+
+while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
+    warn "Short read ($bytes_read)" if $bytes_read != $bytes;
+
+    substr_cam $buf, [ 0 ..  6 ] if $cam3;
+    substr_cam $buf, [ 7 .. 12 ] if $cam4;
+    print $buf;
+    $mqtt->tick(0);
+}
