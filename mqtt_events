@@ -63,10 +63,32 @@ $mqtt->subscribe('revspace/button/doorbell' => sub {
         }
     }
 });
+$mqtt->subscribe('revspace/button/nomz', sub {
+	my $start = time();
+	while (time() - $start < 30) {
+		for (1..8) {
+			print "\xff\x80\x00" x (7 * $leds_per_buis),
+			      "\x00\x00\xff" x (6 * $leds_per_buis);
+			sleep .02;
+			print "\0" x $bytes;
+			sleep .05;
+		}
+		sleep .6;
+		for (1..8) {
+			print "\x00\x00\xff" x (7 * $leds_per_buis),
+			      "\xff\x80\x00" x (6 * $leds_per_buis);
+			sleep .02;
+			print "\0" x $bytes;
+			sleep .05
+		}
+		sleep .6
+	}
+});
 $mqtt->subscribe('revspace/cams' => sub {
     my ($topic, $message) = @_;
     ($cam3, $cam4) = (split " ", $message)[3, 4];
 });
+
 
 while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
     warn "Short read ($bytes_read)" if $bytes_read != $bytes;
