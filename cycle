@@ -7,5 +7,5 @@
     ./pixelfades 120
     sleep 1
 
-done) | ./mqtt_events | ./spacedicht | ./ledspace    
+done) | ./mqtt_events | ./mqtt_status | ./ledspace    
     

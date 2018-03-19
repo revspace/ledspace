@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+use Net::MQTT::Simple;
+use Time::HiRes qw(sleep);
+
+my $buizen = 13;
+my $leds_per_buis = 36;
+my $leds_uit = "\0\0\0" x ($leds_per_buis - 1);
+my $bytes = $buizen * $leds_per_buis * 3;
+my $delay = .02;
+$| = 1;
+
+my $dicht = 0;
+my $cam3 = 0;
+my $cam4 = 0;
+
+sub substr_cam {
+    my (undef, $buizen) = @_;
+
+    my $aantal_rood = 7;
+    my $rood = "\xff\0\0" x $aantal_rood;
+    my $aantal_uit = 2;
+    my $uit = "\0\0\0" x $aantal_uit;
+    for my $buis (@$buizen) {
+        # boven
+        substr(
+            $_[0],
+            ($buis * $leds_per_buis * 3
+                + ($leds_per_buis - $aantal_rood - $aantal_uit) * 3),
+            length($rood) + length($uit),
+            $uit . $rood
+        );
+        # onder
+        substr(
+            $_[0],
+            ($buis * $leds_per_buis * 3),
+            length($rood) + length($uit),
+            $rood . $uit
+        );
+    }
+}
+
+sub substr_dicht {
+    my (undef, $aantal) = @_;
+
+    my $nullbytes = "\0\0\0" x $aantal;
+    substr(
+        $_[0],
+        ($_ * $leds_per_buis * 3 + ($leds_per_buis - $aantal) * 3),
+        length($nullbytes),
+        $nullbytes 
+    ) for 0 .. ($buizen - 1);
+}
+
+my $mqtt = Net::MQTT::Simple->new("mosquitto.space.revspace.nl");
+$mqtt->subscribe('revspace/state' => sub {
+    my ($topic, $message) = @_;
+    $dicht = $message eq 'closed';
+});
+$mqtt->subscribe('revspace/cams' => sub {
+    my ($topic, $message) = @_;
+    ($cam3, $cam4) = (split " ", $message)[3, 4];
+});
+
+
+my $prevdicht = $dicht;
+while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
+    warn "Short read ($bytes_read)" if $bytes_read != $bytes;
+
+    if ($dicht != $prevdicht) {
+        my @range = 1 .. ($leds_per_buis - 1);
+        @range = reverse @range if !$dicht;
+
+        for my $leds_uit (@range) {
+            my $copy = $buf;
+            substr_dicht $copy, $leds_uit;
+            print $copy;
+            sleep $delay;
+        }
+        $prevdicht = $dicht;
+    }
+
+    # Maskers eroverheen leggen
+    substr_cam   $buf, [ 0 ..  6 ] if $cam3;
+    substr_cam   $buf, [ 7 .. 12 ] if $cam4;
+    substr_dicht $buf, $leds_per_buis - 1 if $dicht;
+
+    print $buf;
+    $mqtt->tick(0);
+}
