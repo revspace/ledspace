@@ -9,6 +9,7 @@ my $leds_per_buis = 36;
 my $leds_uit = "\0\0\0" x ($leds_per_buis - 1);
 my $leds = $buizen * $leds_per_buis;
 my $bytes = $leds * 3;
+
 $| = 1;
 
 my $geel = "\xff\xc0\x00";

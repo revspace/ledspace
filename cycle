@@ -17,4 +17,3 @@ echo "$0 gestart"
     sleep 1
 
 done) | ./mqtt_events | ./mqtt_status | ./broken_leds | ./ledspace    
-    
