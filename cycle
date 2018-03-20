@@ -11,9 +11,9 @@ echo "$0 gestart"
 
 (while true; do
     
-    ./regenboogje 120
+    ./pixelfades 240
     sleep 1
-    ./pixelfades 120
+    ./regenboogje 120
     sleep 1
 
 done) | ./mqtt_events | ./mqtt_status | ./broken_leds | ./ledspace    
