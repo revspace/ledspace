@@ -1,5 +1,14 @@
 #!/bin/bash
 
+cd /home/pi/src
+
+while [ ! -e /dev/spidev0.0 ]; do
+    echo "Wachten tot 't SPI device bestaat..."
+    sleep 5
+done
+
+echo "$0 gestart"
+
 (while true; do
     
     ./regenboogje 120
