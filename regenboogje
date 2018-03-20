@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use Graphics::ColorUtils qw(hsv2rgb);
+use Time::HiRes qw(sleep);
 
 my $leds = 13 * 36;
 my $step = 360 / $leds;
@@ -35,4 +36,5 @@ while (1) {
     $h += $direction;
     $h %= 360;
     print frame($h, 1);
+    sleep .01;
 }
