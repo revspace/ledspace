@@ -1,0 +1,27 @@
+#!/usr/bin/perl -w
+use strict;
+my $bytes = 13 * 36 * 3;
+
+$| = 1;
+my @off = (
+    # Leds die het nog wel doen, maar toch zijn afgekeurd
+    35, 71, 107, 143, 179, 215, 251, 287, 323, 395, 431, 467
+);
+
+my @skip = (
+    # Kapotte leds die de datalijnen geshort hebben naar de volgende
+    359
+);
+
+$_ *= 3 for @off, @skip;
+
+while (my $bytes_read = sysread STDIN, my $buf, $bytes) {
+    warn "Short read ($bytes_read)" if $bytes_read != $bytes;
+
+    substr $buf, $_, 3, "\0\0\0" for @off;
+
+    substr $buf, $_, 3, "" for reverse @skip;
+    $buf .= "\xff\xff\xff" x @skip;  # padding zodat string even lang blijft
+   
+    print $buf;
+}

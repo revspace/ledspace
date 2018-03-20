@@ -16,5 +16,5 @@ echo "$0 gestart"
     ./pixelfades 120
     sleep 1
 
-done) | ./mqtt_events | ./mqtt_status | ./ledspace    
+done) | ./mqtt_events | ./mqtt_status | ./broken_leds | ./ledspace    
     
