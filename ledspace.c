@@ -75,7 +75,7 @@ int main (void) {
             g = in[i * 3 + 2];
             b = in[i * 3 + 0];
             
-            out[i * 4 + 0] = 0xff;  // alpa
+            out[i * 4 + 0] = 0xff;  // alpha
             out[i * 4 + 2] = rgb_table[r][0];
             out[i * 4 + 1] = rgb_table[g][1];
             out[i * 4 + 3] = rgb_table[b][2];
