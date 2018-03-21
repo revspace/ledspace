@@ -1,0 +1,127 @@
+#!/usr/bin/perl -w
+use strict;
+use Graphics::ColorUtils qw(hsv2rgb);
+use Time::HiRes qw(sleep);
+use IO::Socket::IP;
+
+my $w = 13;
+my $h = 36;
+my $leds = $h * $w;
+my $pos = int $leds /2;
+my $direction = (-1, +1)[rand 2];
+my $delay = .4;
+my $speed = 0;
+my @players;
+my $player1 = 0;
+my $fill1 = 0;
+my $player2 = 0;
+my $fill2 = 0;
+
+my $color = pack "C*", hsv2rgb(int(rand(360)), 1, 1);
+
+my ($socket,$received_data);
+my ($peer_address,$peer_port);
+
+$socket = new IO::Socket::IP (
+    LocalPort => '1337',
+    Proto => 'udp',
+    Blocking => 0,
+) or die "ERROR in Socket Creation : $!\n";
+
+$| = 1;
+
+sub wait_for_join {
+    warn "waiting for players\n";
+    while(1){
+        $socket->recv(my $recv, 1024);
+        if ($recv) {
+            push @players, $socket->peerhost().":".$socket->peerport();
+            warn($socket->peerhost().":".$socket->peerport() . " joined\n");
+        }
+        return if scalar @players == 2;
+    }
+}
+
+#print("\0\0\0"x($leds-1));
+wait_for_join();
+warn("starting game\n");
+my $i=0;
+while(1) {
+    $socket->recv(my $recv, 1024);
+    if ($recv) {
+        $peer_address = $socket->peerhost();
+        $peer_port = $socket->peerport();
+        if ($players[0] eq "$peer_address:$peer_port") {
+            $fill1 = 1;
+            warn "bounce left player\n";
+            if (($leds - $pos) < 15) {
+                $direction = -1;
+                $speed += .02;
+                warn "hit\n";
+            }
+        } else {
+            $fill2 = 1;
+            warn "bounce right player\n";
+            if ($pos < 15) {
+                $direction = 1;
+                $speed += .02;
+                warn "hit\n";
+            }
+        }
+    }
+    #warn "pos: $pos dir: $direction player1: $player1 player2: $player2\n";
+
+        $fill1 = 0 if $player1 > 15;
+        $player1++ if $fill1;
+        $player1-- if not $fill1 and $player1>0;
+
+        $fill2 = 0 if $player2 > 15;
+        $player2++ if $fill2;
+        $player2-- if not $fill2 and $player2>0;
+
+
+    if ($pos < 1 or $pos > ($leds-1)) {
+        if ($pos < 1) {
+            for (1..5) {
+                print("\0\0\0" x ($h*7));
+                print("\0\xff\0" x ($h*6));
+                sleep .4;
+                print("\0\0\0" x $leds);
+                sleep .5;
+            }
+        } else {
+            for (1..5) {
+                print("\0\xff\0" x ($h*7));
+                print("\0\0\0" x ($h*6));
+                sleep .4;
+                print("\0\0\0" x $leds);
+                sleep .5;
+            }
+        }
+        warn "game over\n";
+        exit;
+    }
+    $pos += $direction;
+    my $frame = "";
+
+    $frame .= "\xff\0\0" x $player2;
+    $frame .= "\0\0\0" x ($pos - $player2) if $pos - $player2 > 0;
+    $frame .= $color;
+    $frame .= "\0\0\0" x ($leds - 1 - $pos - $player1) if $leds - 1 -  $pos - $player1 - $player2 > 0;
+    $frame .= "\xff\0\0" x $player1;
+
+    print $frame;
+    if (length $frame > 1404) {
+        warn "sending too much!\n";
+        warn "$player2 + ($pos - $player2) + 1 + ($leds - 1 - $pos - $player1) + $player1\n";
+    }
+    if (length $frame < 1404) {
+        warn "not sending enough!\n";
+        warn "$player2 + ($pos - $player2) + 1 + ($leds - 1 - $pos - $player1) + $player1\n";
+    }
+    my $delay -= $speed;
+    $delay = 0.7 if $delay < 0.7;
+    sleep $delay;
+}
+
+$socket->close();
