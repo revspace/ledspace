@@ -24,7 +24,7 @@
 #define WHITE_G 210
 #define WHITE_B 200
 
-int hz = 2000000;
+int hz = 1000000;
 
 static uint8_t rgb_table[256][3];
 
