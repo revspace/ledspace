@@ -24,6 +24,8 @@
 #define WHITE_G 210
 #define WHITE_B 200
 
+int hz = 2000000;
+
 static uint8_t rgb_table[256][3];
 
 static char out[BYTES_OUT + TAIL];
@@ -51,7 +53,7 @@ static void create_table(uint8_t table[][3], uint8_t white[3])
 }
 
 
-int main (void) {
+int main (int argc, char *argv[]) {
     char in[BYTES_IN];
     int i, c;
     uint8_t r,g,b;
@@ -61,7 +63,10 @@ int main (void) {
 
     int spi = open("/dev/spidev0.0", O_WRONLY);
 
-    int hz = 1000000;
+   //#int hz = 2000000;
+    if (argc == 2) {
+        hz = atoi(argv[1]);
+    }
     int lsb_first = 0;
     int mode = 0;
     ioctl(spi, SPI_IOC_WR_MODE, &mode);

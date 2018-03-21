@@ -36,5 +36,5 @@ while (1) {
     $h += $direction;
     $h %= 360;
     print frame($h, 1);
-    sleep .01;
+    sleep .03;
 }

@@ -16,4 +16,4 @@ echo "$0 gestart"
     ./regenboogje 120
     sleep 1
 
-done) | ./mqtt_events | ./mqtt_status | ./broken_leds | ./ledspace    
+done) | ./mqtt_events | ./mqtt_status | ./broken_leds | ./ledspace
